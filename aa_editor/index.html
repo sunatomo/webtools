@@ -1,14 +1,251 @@
 <html>
     <head>
         <script>
-        
+            var grf = [
+			    {
+				    type:'box',
+					x:3,
+					y:3,
+					width:10,
+					height:4,
+					text:'unko'
+				}
+			];
         </script>
         <style>
+		pre {
+			border-bottom-left-radius:3px;
+			border-bottom-right-radius:3px;
+			border-top-left-radius:3px;
+			border-top-right-radius:3px;
+			box-sizing:border-box;
+			color:rgb(36, 41, 46);
+			display:block;
+			font-family:SFMono-Regular, Consolas, "Liberation Mono", Menlo, Courier, monospace;
+			font-size:13.6px;
+			line-height:19.72px;
+			margin-bottom:0px;
+			margin-left:0px;
+			margin-right:0px;
+			margin-top:0px;
+			overflow-x:auto;
+			overflow-y:auto;
+			text-size-adjust:100%;
+			white-space:pre;
+			word-wrap:normal;
+		}
+		code {
+			background-color:rgb(246, 248, 250);
+			border-bottom-left-radius:3px;
+			border-bottom-right-radius:3px;
+			border-top-left-radius:3px;
+			border-top-right-radius:3px;
+			box-sizing:border-box;
+			color:rgb(36, 41, 46);
+			display:block;
+			font-family:SFMono-Regular, Consolas, "Liberation Mono", Menlo, Courier, monospace;
+			font-size:13.6px;
+			line-height:19.72px;
+			margin-bottom:0px;
+			margin-left:0px;
+			margin-right:0px;
+			margin-top:0px;
+			overflow-x:auto;
+			overflow-y:auto;
+			text-size-adjust:100%;
+			white-space:pre;
+			word-wrap:normal;
+		}
+		
+		word:hover {
+		    background-color: crimson;
+		}
         </style>
     </head>
     <body>
-        <button>BOX</button>
-        <button>LINE</button>
-        <canvas id='canvas'></canvas>
+	    <div><form id="shapes">
+			<input type="radio" name="shape" value="box" checked="checked">BOX
+			<input type="radio" name="shape" value="line">FREE LINE
+			<input type="radio" name="shape" value="link">LINK LINE
+		</form></div>
+		<pre >
+		    <code id='editor'></code>
+		</pre>
+		<div>
+		    stye
+			<div>
+			    <button onclick='front'>最前に持ってくる</button>
+			    <button onclick='back'>最後に持ってくる</button>
+				<br>
+			    テキスト<input id='text_msg' onchange='change'>
+			</div>
+		</div>
+	    <button onclick='MD'>mark down出力</button><br>
+		<textarea>
+```
+```
+<!-- -->
+		</textarea>
     <body>
+	<script>
+	    var editor = document.getElementById('editor');
+		var drawing = null;
+		var moving = null;
+		
+		function onmousedown(e) {
+		    if(moving || drawing) return false;
+		    var t = e.target;
+		    var type = document.getElementById('shapes').shape.value;
+			
+			//ドラッグ
+			if(type == 'box' && t.grf && !moving && !drawing) {
+			    moving = t.grf;
+				moving.start = t;
+				moving.originX = t.grf.x;
+				moving.originY = t.grf.y;
+				moving.option = {type: 'position'};
+			    if(t.grf.type=='box') {
+				    if( (t.grf.x==t.X || t.grf.x+t.grf.width==t.X) &&
+					    (t.grf.y==t.Y || t.grf.y+t.grf.height==t.Y) ) {
+						moving.option = {
+						    type: 'size',
+						    isLeft: t.grf.x==t.X,
+						    isTop: t.grf.y==t.Y,
+						    originW: t.grf.width,
+						    originH: t.grf.height
+						};
+					}
+				}
+			    return false;
+            }
+		    drawing = {
+			    start: t,
+			    end: t,
+			    x: t.X,
+			    y: t.Y,
+				width:0,
+				height:0,
+				text:'',
+			    type : type
+			};
+			return false;
+		};
+		function onmousemove(e) {
+		    if(drawing) {
+			    drawing.end = e.target;
+			    if(drawing.start.X < drawing.end.X) {
+				    drawing.x = drawing.start.X;
+					drawing.width = drawing.end.X - drawing.start.X;
+				} else {
+				    drawing.x = drawing.end.X;
+					drawing.width = drawing.start.X - drawing.end.X;
+				}
+			    if(drawing.start.Y < drawing.end.Y) {
+				    drawing.y = drawing.start.Y;
+					drawing.height = drawing.end.Y - drawing.start.Y;
+				} else {
+				    drawing.y = drawing.end.Y;
+					drawing.height = drawing.start.Y - drawing.end.Y;
+				}
+	        	draw();
+			}
+			if(moving) {
+			    if (moving.option.type == 'position') {
+					moving.x = moving.originX + e.target.X - moving.start.X;
+					moving.y = moving.originY + e.target.Y - moving.start.Y;
+				} else if (moving.option.type == 'size') {
+				    if(moving.option.isLeft) {
+					    if( moving.option.originW - e.target.X + moving.start.X >=0) {
+							moving.x = moving.originX + e.target.X - moving.start.X;
+							moving.width = moving.option.originW - e.target.X + moving.start.X;
+						}
+					} else {
+					    if( moving.option.originW + e.target.X - moving.start.X >=0) {
+							moving.width = moving.option.originW + e.target.X - moving.start.X;
+						}
+					}
+				    if(moving.option.isTop) {
+					    if( moving.option.originH - e.target.Y + moving.start.Y >=0) {
+							moving.y = moving.originY + e.target.Y - moving.start.Y;
+							moving.height = moving.option.originH - e.target.Y + moving.start.Y;
+						}
+					} else {
+					    if( moving.option.originH + e.target.Y - moving.start.Y >=0) {
+							moving.height = moving.option.originH + e.target.Y - moving.start.Y;
+						}
+					}
+				}
+	        	draw();
+			}
+			return false;
+		}
+		function onmouseup(e) {
+		    if(drawing) {
+			    delete drawing.start;
+			    delete drawing.end;
+				grf.push(drawing);
+				drawing = null;
+	        	draw();
+			}
+			if(moving) {
+			    delete moving.originX;
+			    delete moving.originY;
+			    delete moving.start;
+			    delete moving.option;
+				moving = null;
+			}
+			return false;
+		}
+		
+		function drawBox(g) {
+		    for(var x=g.x;x<=g.x+g.width;++x) {
+			    bufSet(g.y, x, g, '+');
+			    bufSet(g.y+g.height, x, g, '+');
+			}
+		    for(var y=g.y;y<=g.y+g.height;++y) {
+			    bufSet(y, g.x, g, '+');
+			    bufSet(y, g.x+g.width, g, '+');
+			}
+			var l = g.text.length;
+			var x = Math.floor(g.x + g.width/2-l/2);
+		    for(var i=0;i<l;++i) {
+			    bufSet(g.y+1, x+i, g, g.text[i]);
+			}
+		}
+	    var buf=[];
+		function bufSet(i,j,g,c) {
+		    if(buf[i] && buf[i][j]) {
+			    buf[i][j].innerText = c;
+				buf[i][j].grf = g;
+			}
+		}
+		for(var i=0;i<10;++i) {
+		    buf[i]=[];
+		    for(var j=0;j<100;++j) {
+			    var w = document.createElement('word');
+				w.Y=i;
+				w.X=j;
+				w.innerText = ' ';
+				w.onmousedown = onmousedown;
+				w.onmousemove = onmousemove;
+				w.onmouseup = onmouseup;
+			    buf[i][j]=w;
+				editor.appendChild(w);
+			}
+			editor.appendChild(document.createElement('br'));
+		}
+		function draw() {
+			for(var i=0;i<10;++i) {
+				for(var j=0;j<100;++j) {
+			        buf[i][j].grf=null;
+			        buf[i][j].innerText=' ';
+				}
+			}
+		    
+			for(var g of grf.concat(drawing)) if(g){
+				if(g.type=='box') drawBox(g);
+			}
+		}
+		draw();
+		</script>
 </html>
