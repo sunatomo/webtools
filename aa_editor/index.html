@@ -1,16 +1,7 @@
 <html>
     <head>
         <script>
-            var grf = [
-			    {
-				    type:'box',
-					x:3,
-					y:3,
-					width:10,
-					height:4,
-					text:'unko'
-				}
-			];
+            var grf = [];
         </script>
         <style>
 		pre {
@@ -60,6 +51,12 @@
 		word:hover {
 		    background-color: crimson;
 		}
+		
+		#editor_area {
+		    overflow: auto;
+			resize: both;
+			height: 600px;
+		}
         </style>
     </head>
     <body>
@@ -68,16 +65,31 @@
 			<input type="radio" name="shape" value="line">FREE LINE
 			<input type="radio" name="shape" value="link">LINK LINE
 		</form></div>
-		<pre >
-		    <code id='editor'></code>
-		</pre>
+		<div id='editor_area'>
+			<pre >
+				<code id='editor' onmousedown='return false'></code>
+			</pre>
+		</div>
 		<div>
-		    stye
 			<div>
-			    <button onclick='front'>最前に持ってくる</button>
-			    <button onclick='back'>最後に持ってくる</button>
-				<br>
-			    テキスト<input id='text_msg' onchange='change'>
+				<div id='common_style' style='display:none'>
+					<button onclick='front()'>最前に持ってくる</button>
+					<button onclick='back()'>最後に持ってくる</button>
+					<button onclick='remove()'>削除</button>
+					<br>
+					テキスト<input id='input_text' onchange='inputText(this)' />
+				</div>
+				<div id='box_style' style='display:none'>
+				    塗りつぶし
+					<form id="paint">
+						<input type="radio" name="shape" value="box" checked="checked">なし
+						<input type="radio" name="shape" value="line">あり
+					</form>
+				</div>
+				<div id='line_style'  style='display:none'>
+				</div>
+				<div id='link_style'  style='display:none'>
+				</div>
 			</div>
 		</div>
 	    <button onclick='MD'>mark down出力</button><br>
@@ -88,17 +100,31 @@
 		</textarea>
     <body>
 	<script>
-	    var editor = document.getElementById('editor');
+	    var DH = [1,0,-1,0];
+	    var DV = [0,1,0,-1];
 		var drawing = null;
 		var moving = null;
+		var selected = null;
 		
+		function remove() {
+		    if(selected) {
+			    var i = grf.indexOf(selected);
+			    grf = grf.slice(0, i).concat(grf.slice(i+1));
+			}
+			setSelected(null);
+	        draw();
+		}
+		function inputText(e) {
+		    selected.text = e.value;
+	        draw();
+		}
 		function onmousedown(e) {
 		    if(moving || drawing) return false;
 		    var t = e.target;
-		    var type = document.getElementById('shapes').shape.value;
+		    var type = shapes.shape.value;
 			
 			//ドラッグ
-			if(type == 'box' && t.grf && !moving && !drawing) {
+			if(['box','line'].indexOf(type)>=0 && t.grf && !moving && !drawing) {
 			    moving = t.grf;
 				moving.start = t;
 				moving.originX = t.grf.x;
@@ -116,6 +142,15 @@
 						};
 					}
 				}
+			    if(t.grf.type=='line') {
+				    if (t.X == t.grf.x+DH[t.grf.direction]*t.grf.length &&
+					    t.Y == t.grf.y+DV[t.grf.direction]*t.grf.length) {
+						moving.option = {
+						    type: 'edge'
+						};
+					}
+				    
+				}
 			    return false;
             }
 		    drawing = {
@@ -123,34 +158,66 @@
 			    end: t,
 			    x: t.X,
 			    y: t.Y,
-				width:0,
-				height:0,
 				text:'',
 			    type : type
 			};
+			if(type=='box') {
+			    drawing.width = 0;
+			    drawing.height = 0;
+			}
+			if(type=='line') {
+			    drawing.direction = 0;
+			    drawing.length = 0;
+			}
 			return false;
 		};
 		function onmousemove(e) {
+		    if(e.buttons && !moving && !drawing) return onmousedown(e);
+		    if(!e.buttons && (moving || drawing)) return onmouseup(e);
 		    if(drawing) {
 			    drawing.end = e.target;
-			    if(drawing.start.X < drawing.end.X) {
-				    drawing.x = drawing.start.X;
-					drawing.width = drawing.end.X - drawing.start.X;
-				} else {
-				    drawing.x = drawing.end.X;
-					drawing.width = drawing.start.X - drawing.end.X;
+				if(drawing.type=='box') {
+					if(drawing.start.X < drawing.end.X) {
+						drawing.x = drawing.start.X;
+						drawing.width = drawing.end.X - drawing.start.X;
+					} else {
+						drawing.x = drawing.end.X;
+						drawing.width = drawing.start.X - drawing.end.X;
+					}
+					if(drawing.start.Y < drawing.end.Y) {
+						drawing.y = drawing.start.Y;
+						drawing.height = drawing.end.Y - drawing.start.Y;
+					} else {
+						drawing.y = drawing.end.Y;
+						drawing.height = drawing.start.Y - drawing.end.Y;
+					}
 				}
-			    if(drawing.start.Y < drawing.end.Y) {
-				    drawing.y = drawing.start.Y;
-					drawing.height = drawing.end.Y - drawing.start.Y;
-				} else {
-				    drawing.y = drawing.end.Y;
-					drawing.height = drawing.start.Y - drawing.end.Y;
+				if(drawing.type=='line') {
+				    var h = Math.abs(drawing.start.X-drawing.end.X);
+				    var v = Math.abs(drawing.start.Y-drawing.end.Y);
+				    if(h < v) {
+					    drawing.direction = drawing.start.Y < drawing.end.Y ? 1 : 3;
+						drawing.length = v;
+					} else {
+					    drawing.direction = drawing.start.X < drawing.end.X ? 0 : 2;
+						drawing.length = h;
+					}
 				}
 	        	draw();
 			}
 			if(moving) {
-			    if (moving.option.type == 'position') {
+			    if (moving.option.type == 'edge') {
+				    var end = e.target;
+				    var h = Math.abs(moving.x-end.X);
+				    var v = Math.abs(moving.y-end.Y);
+				    if(h < v) {
+					    moving.direction = moving.y < end.Y ? 1 : 3;
+						moving.length = v;
+					} else {
+					    moving.direction = moving.x < end.X ? 0 : 2;
+						moving.length = h;
+					}
+			    } else if (moving.option.type == 'position') {
 					moving.x = moving.originX + e.target.X - moving.start.X;
 					moving.y = moving.originY + e.target.Y - moving.start.Y;
 				} else if (moving.option.type == 'size') {
@@ -179,8 +246,22 @@
 			}
 			return false;
 		}
+		function setSelected(grf) {
+		    selected = grf;
+			common_style.style.display='none';
+			box_style.style.display='none';
+			line_style.style.display='none';
+			link_style.style.display='none';
+			if(!selected) return;
+			
+			common_style.style.display='';
+			input_text.value = selected.text;
+			window[selected.type + '_style'].style.display='';
+			
+		}
 		function onmouseup(e) {
 		    if(drawing) {
+				setSelected(drawing);
 			    delete drawing.start;
 			    delete drawing.end;
 				grf.push(drawing);
@@ -188,6 +269,7 @@
 	        	draw();
 			}
 			if(moving) {
+				setSelected(moving);
 			    delete moving.originX;
 			    delete moving.originY;
 			    delete moving.start;
@@ -207,9 +289,30 @@
 			    bufSet(y, g.x+g.width, g, '+');
 			}
 			var l = g.text.length;
-			var x = Math.floor(g.x + g.width/2-l/2);
+			var x = Math.floor(g.x + g.width/2-l/2 +0.5);
 		    for(var i=0;i<l;++i) {
 			    bufSet(g.y+1, x+i, g, g.text[i]);
+			}
+		}
+		
+		function drawLine(g) {
+		    var h = DH[g.direction];
+		    var v = DV[g.direction];
+			var c = ['-','|','-','|'][g.direction];
+			var e = ['>','V','<','^'][g.direction];
+			var x = g.x;
+			var y = g.y;
+		    for(var i=0;i<g.length;++i) {
+			    bufSet(y, x, g, c);
+			    x += h;
+			    y += v;
+			}
+			bufSet(y, x, g, e);
+			var l = g.text.length;
+			var x = Math.floor(g.x - l/2 + g.length/2*h +0.5);
+			var y = Math.floor(g.y + g.length/2*v +1.5);
+		    for(var i=0;i<l;++i) {
+			    bufSet(y, x+i, g, g.text[i]);
 			}
 		}
 	    var buf=[];
@@ -219,9 +322,9 @@
 				buf[i][j].grf = g;
 			}
 		}
-		for(var i=0;i<10;++i) {
+		for(var i=0;i<50;++i) {
 		    buf[i]=[];
-		    for(var j=0;j<100;++j) {
+		    for(var j=0;j<300;++j) {
 			    var w = document.createElement('word');
 				w.Y=i;
 				w.X=j;
@@ -235,8 +338,8 @@
 			editor.appendChild(document.createElement('br'));
 		}
 		function draw() {
-			for(var i=0;i<10;++i) {
-				for(var j=0;j<100;++j) {
+			for(var i=0;i<50;++i) {
+				for(var j=0;j<300;++j) {
 			        buf[i][j].grf=null;
 			        buf[i][j].innerText=' ';
 				}
@@ -244,6 +347,7 @@
 		    
 			for(var g of grf.concat(drawing)) if(g){
 				if(g.type=='box') drawBox(g);
+				if(g.type=='line') drawLine(g);
 			}
 		}
 		draw();
