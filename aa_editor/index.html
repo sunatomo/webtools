@@ -1,5 +1,6 @@
 <html>
     <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
         <script>
             var grf = [];
         </script>
@@ -55,7 +56,7 @@
 		#editor_area {
 		    overflow: auto;
 			resize: both;
-			height: 600px;
+			height: 200px;
 		}
         </style>
     </head>
@@ -64,6 +65,8 @@
 			<input type="radio" name="shape" value="box" checked="checked">BOX
 			<input type="radio" name="shape" value="line">FREE LINE
 			<input type="radio" name="shape" value="link">LINK LINE
+			<input type="radio" name="shape" value="text">TEXT
+			<input type="radio" name="shape" value="copy">COPY
 		</form></div>
 		<div id='editor_area'>
 			<pre >
@@ -77,23 +80,28 @@
 					<button onclick='back()'>最後に持ってくる</button>
 					<button onclick='remove()'>削除</button>
 					<br>
-					テキスト<input id='input_text' onchange='inputText(this)' />
+					テキスト<textarea id='input_text' onkeyup='chageProperty()'></textarea>
 				</div>
-				<div id='box_style' style='display:none'>
-				    塗りつぶし
-					<form id="paint">
-						<input type="radio" name="shape" value="box" checked="checked">なし
-						<input type="radio" name="shape" value="line">あり
-					</form>
-				</div>
-				<div id='line_style'  style='display:none'>
-				</div>
+				<form id='box_style' style='display:none'>
+				    塗りつぶし(未対応)
+                    <input type="radio" name="shape" value="box" checked="checked">なし
+                    <input type="radio" name="shape" value="line">あり
+                    <br>
+				    縦の文字<input pattern='.' required minlength=1 maxlength=1 size=1 name='vertical' onchange='chageProperty()'/><br>
+				    横の文字<input pattern='.' required minlength=1 maxlength=1 size=1 name='horizon' onchange='chageProperty()'/><br>
+				    角の文字<input pattern='.' required minlength=1 maxlength=1 size=1 name='corner' onchange='chageProperty()'/><br>
+				</form>
+				<form id='line_style'  style='display:none'>
+				    矢印<input type='checkbox' name='edge' onchange='chageProperty()'/><br>
+				</form>
 				<div id='link_style'  style='display:none'>
+				</div>
+				<div id='text_style'  style='display:none'>
 				</div>
 			</div>
 		</div>
-	    <button onclick='MD'>mark down出力</button><br>
-		<textarea>
+	    <button onclick='output_md()'>mark down出力</button><br>
+		<textarea id='output'>
 ```
 ```
 <!-- -->
@@ -105,6 +113,8 @@
 		var drawing = null;
 		var moving = null;
 		var selected = null;
+        var width = 300;
+        var height = 50;
 		
 		function remove() {
 		    if(selected) {
@@ -114,17 +124,46 @@
 			setSelected(null);
 	        draw();
 		}
+		function front() {
+			var i = grf.indexOf(selected);
+			grf = grf.slice(0, i).concat(grf.slice(i+1));
+            grf.push(selected);
+	        draw();
+		}
+		function back() {
+            var i = grf.indexOf(selected);
+            grf = [selected].concat(grf.slice(0, i).concat(grf.slice(i+1)));
+	        draw();
+		}
 		function inputText(e) {
 		    selected.text = e.value;
 	        draw();
+		}
+		function chageProperty() {
+            selected.text = input_text.value;
+            if (selected.type=='box') {
+                selected.vertical = box_style.querySelector('[name="vertical"]').value;
+                selected.horizon = box_style.querySelector('[name="horizon"]').value;
+                selected.corner = box_style.querySelector('[name="corner"]').value;
+            }
+            if (selected.type=='line') {
+                selected.edge = line_style.querySelector('[name="edge"]').checked;
+            }
+	        draw();
+            return false;
 		}
 		function onmousedown(e) {
 		    if(moving || drawing) return false;
 		    var t = e.target;
 		    var type = shapes.shape.value;
 			
+            if(type=='copy' && !t.grf) return;
+            if(type=='copy' && t.grf) {
+                t.grf = JSON.parse(JSON.stringify(t.grf));
+                grf.push(t.grf);
+            }
 			//ドラッグ
-			if(['box','line'].indexOf(type)>=0 && t.grf && !moving && !drawing) {
+			if(['box','text','copy'].indexOf(type)>=0 && t.grf && !moving && !drawing) {
 				if (t.grf.type=='link') {
 					setSelected(t.grf);
 				    return false;
@@ -172,10 +211,17 @@
 			if(type=='box') {
 			    drawing.width = 0;
 			    drawing.height = 0;
+			    drawing.corner = '+';
+			    drawing.vertical = '|';
+			    drawing.horizon = '-';
 			}
 			if(type=='line') {
 			    drawing.direction = 0;
 			    drawing.length = 0;
+			    drawing.edge = true;
+			}
+			if(type=='text') {
+			    drawing.text = 'hoge';
 			}
 			if(type=='link') {
 			    drawing.src = t.grf;
@@ -215,6 +261,11 @@
 						drawing.length = h;
 					}
 				}
+				if(drawing.type=='text') {
+                    drawing.x = drawing.end.X;
+                    drawing.y = drawing.end.Y;
+                }
+                
 				if(drawing.type=='link') {
 					drawing.x = drawing.end.X;
 					drawing.y = drawing.end.Y;
@@ -276,6 +327,15 @@
 			common_style.style.display='';
 			input_text.value = selected.text;
 			window[selected.type + '_style'].style.display='';
+            
+            if (grf.type=='box') {
+                box_style.querySelector('[name="vertical"]').value = grf.vertical;
+                box_style.querySelector('[name="horizon"]').value = grf.horizon;
+                box_style.querySelector('[name="corner"]').value = grf.corner;
+            }
+            if (grf.type=='line') {
+                line_style.querySelector('[name="edge"]').checked = grf.edge;
+            }
 			
 		}
 		function onmouseup(e) {
@@ -300,17 +360,25 @@
 		
 		function drawBox(g) {
 		    for(var x=g.x;x<=g.x+g.width;++x) {
-			    bufSet(g.y, x, g, '+');
-			    bufSet(g.y+g.height, x, g, '+');
+			    bufSet(g.y, x, g, g.horizon);
+			    bufSet(g.y+g.height, x, g, g.horizon);
 			}
 		    for(var y=g.y;y<=g.y+g.height;++y) {
-			    bufSet(y, g.x, g, '+');
-			    bufSet(y, g.x+g.width, g, '+');
+			    bufSet(y, g.x, g, g.vertical);
+			    bufSet(y, g.x+g.width, g, g.vertical);
 			}
-			var l = g.text.length;
+			bufSet(g.y, g.x, g, g.corner);
+			bufSet(g.y, g.x+g.width, g, g.corner);
+			bufSet(g.y+g.height, g.x+g.width, g, g.corner);
+			bufSet(g.y+g.height, g.x, g, g.corner);
+            
+            var lines = g.text.split('\n');
+			var l = lines.reduce(function(x,y) {return x.length>y.length ? x :y ;} ).length;
 			var x = Math.floor(g.x + g.width/2-l/2 +0.5);
-		    for(var i=0;i<l;++i) {
-			    bufSet(g.y+1, x+i, g, g.text[i]);
+		    for(var j=0;j<lines.length;++j) {            
+                for(var i=0;i<lines[j].length;++i) {
+                    bufSet(g.y+1+j, x+i, g, lines[j][i]);
+                }
 			}
 		}
 		
@@ -318,20 +386,35 @@
 		    var h = DH[g.direction];
 		    var v = DV[g.direction];
 			var c = ['-','|','-','|'][g.direction];
-			var e = ['>','V','<','^'][g.direction];
+			var e = g.edge ? ['>','V','<','^'][g.direction] : ['-','|','-','|'][g.direction];
 			var x = g.x;
 			var y = g.y;
+            
 		    for(var i=0;i<g.length;++i) {
-			    bufSet(y, x, g, c);
+                if (i==0 && bufGet(y,x).g) {
+                    bufSet(y, x, g, '+');
+                } else bufSet(y, x, g, c);
 			    x += h;
 			    y += v;
 			}
 			bufSet(y, x, g, e);
-			var l = g.text.length;
+            var lines = g.text.split('\n');
+			var l = lines.reduce(function(x,y) {return x.length>y.length ? x :y ;} ).length;
 			var x = Math.floor(g.x - l/2 + g.length/2*h +0.5);
-			var y = Math.floor(g.y + g.length/2*v +1.5);
-		    for(var i=0;i<l;++i) {
-			    bufSet(y, x+i, g, g.text[i]);
+			var y = Math.floor(g.y + g.length/2*v - lines.length/2 +1.5);
+		    for(var j=0;j<lines.length;++j) {            
+                for(var i=0;i<lines[j].length;++i) {
+                    bufSet(y+j, x+i, g, lines[j][i]);
+                }
+			}
+		}
+		
+		function drawText(g) {
+            var lines = g.text.split('\n');
+		    for(var j=0;j<lines.length;++j) {            
+                for(var i=0;i<lines[j].length;++i) {
+                    bufSet(g.y+j, g.x+i, g, lines[j][i]);
+                }
 			}
 		}
 		
@@ -451,13 +534,24 @@
 	    var buf=[];
 		function bufSet(i,j,g,c) {
 		    if(buf[i] && buf[i][j]) {
-			    buf[i][j].innerText = c;
+			    if(c) buf[i][j].innerText = c;
 				buf[i][j].grf = g;
+				buf[i][j].className = g.class;
 			}
 		}
-		for(var i=0;i<50;++i) {
+		function bufGet(i,j) {
+		    if(buf[i] && buf[i][j]) return {
+			    c:buf[i][j].innerText,
+				g:buf[i][j].grf
+			};
+            return {
+                c:null,
+                g:null
+            };
+		}
+		for(var i=0;i<height;++i) {
 		    buf[i]=[];
-		    for(var j=0;j<300;++j) {
+		    for(var j=0;j<width;++j) {
 			    var w = document.createElement('word');
 				w.Y=i;
 				w.X=j;
@@ -471,19 +565,132 @@
 			editor.appendChild(document.createElement('br'));
 		}
 		function draw() {
-			for(var i=0;i<50;++i) {
-				for(var j=0;j<300;++j) {
-			        buf[i][j].grf=null;
-			        buf[i][j].innerText=' ';
-				}
+            for(var row of buf) for(var cell of row) {
+                cell.grf=null;
+                cell.innerText=' ';
+                cell.className='';
 			}
 		    
-			for(var g of grf.concat(drawing)) if(g){
+			for(var g of grf) {
+                g.class = 'cls'+grf.indexOf(g);
 				if(g.type=='box') drawBox(g);
 				if(g.type=='line') drawLine(g);
+				if(g.type=='text') drawText(g);
+				if(g.type=='link') drawLink(g);
+			}
+			if(drawing) {
+                var g = drawing;
+                g.class = null;
+				if(g.type=='box') drawBox(g);
+				if(g.type=='line') drawLine(g);
+				if(g.type=='text') drawText(g);
 				if(g.type=='link') drawLink(g);
 			}
 		}
-		draw();
+        
+        function toHex(n) {
+            return n.toString(16);
+        }
+        function output_md() {
+            var records = [];
+            for(var row of buf) {
+                var record = '';
+                for(var cell of row) record += cell.innerText;
+                var m = record.match(/^.*[^ ]/);
+                records.push(m ? m[0] : '');
+            }
+            var last =0;
+            var start =-1;
+            for(var i=0; i<records.length; ++i) {
+                if(records[i]!='') last=i;
+                if(start <0 && records[i]!='') start =i;              
+            }
+            var str='';
+			for(var g of grf) {
+				if(g.type=='box') {
+                    str +='b';
+                    var s = g.horizon.length + g.vertical.length*2 + g.corner.length*4;
+                    str += s + g.horizon + g.vertical + g.corner;
+                    str += [toHex(g.x),toHex(g.y),toHex(g.width),toHex(g.height)].join();
+                    str += ',' + g.text;
+                }
+				if(g.type=='line') {
+                    str +='l';
+                    str += g.direction;
+                    str += g.edge?0:1;
+                    str += [toHex(g.x),toHex(g.y),toHex(g.length)].join();
+                    str += ',' + g.text;
+                }
+				if(g.type=='text') {
+                    str +='t';
+                    str += [toHex(g.x),toHex(g.y)].join();
+                    str += ',' + g.text;
+                }
+                str += ';';
+			}
+            output.value = '```\n' + records.slice(start,last+1).join('\n') + '\n```' +
+                           '\n<!--' + encodeURIComponent(str) + '-->\n';
+            output.rows = output.value.split('\n').length;
+            output.cols = width;
+            history.pushState(null,'','?'+encodeURIComponent(str));
+        }
+        window.onpopstate = function (e) {
+            decode();
+        }
+        
+        function decode() {
+            grf = [];
+            if(document.location.href.includes('?')) {
+                var str = decodeURIComponent(document.location.href.split('?')[1]);
+                for(var s of str.split(';')) if(s) {
+                    var g = {};
+                    if(s[0]=='b') {
+                        g.type = 'box';
+                        var bit = s[1]*1;
+                        s = s.slice(2);
+                        g.horizon = g.vertical = g.corner = '';
+                        if(bit&1) {
+                            g.horizon = s[0];
+                            s = s.slice(1);
+                        }
+                        if(bit&2) {
+                            g.vertical = s[0];
+                            s = s.slice(1);
+                        }
+                        if(bit&4) {
+                            g.corner = s[0];
+                            s = s.slice(1);
+                        }
+                        var n = s.split(',');
+                        g.x = parseInt(n[0],16);
+                        g.y = parseInt(n[1],16);
+                        g.width = parseInt(n[2],16);
+                        g.height = parseInt(n[3],16);
+                        g.text = n[4];
+                    }
+                    if(s[0]=='l') {
+                        g.type = 'line';
+                        g.direction = s[1]*1;
+                        g.edge = s[2] == '0';
+                        var n = s.slice(2).split(',');
+                        g.x = parseInt(n[0],16);
+                        g.y = parseInt(n[1],16);
+                        g.length = parseInt(n[2],16);
+                        g.text = n[3];
+                    }
+                    if(s[0]=='t') {
+                        g.type = 'text';
+                        var n = s.slice(1).split(',');
+                        g.x = parseInt(n[0],16);
+                        g.y = parseInt(n[1],16);
+                        g.text = n[2];
+                    }
+                    grf.push(g);
+                }
+            }
+            draw();
+        }
+        
+		decode();
 		</script>
 </html>
