@@ -56,7 +56,7 @@
 		#editor_area {
 		    overflow: auto;
 			resize: both;
-			height: 200px;
+			height: 70%;
 		}
         </style>
     </head>
@@ -64,7 +64,7 @@
 	    <div><form id="shapes">
 			<input type="radio" name="shape" value="box" checked="checked">BOX
 			<input type="radio" name="shape" value="line">FREE LINE
-			<input type="radio" name="shape" value="link">LINK LINE
+			<input type="radio" name="shape" value="link">CONNECTOR
 			<input type="radio" name="shape" value="text">TEXT
 			<input type="radio" name="shape" value="copy">COPY
 		</form></div>
@@ -95,6 +95,8 @@
 				    矢印<input type='checkbox' name='edge' onchange='chageProperty()'/><br>
 				</form>
 				<div id='link_style'  style='display:none'>
+				    矢印1<input type='checkbox' name='edge1' onchange='chageProperty()'/><br>
+				    矢印2<input type='checkbox' name='edge2' onchange='chageProperty()'/><br>
 				</div>
 				<div id='text_style'  style='display:none'>
 				</div>
@@ -149,6 +151,10 @@
             if (selected.type=='line') {
                 selected.edge = line_style.querySelector('[name="edge"]').checked;
             }
+            if (selected.type=='link') {
+                selected.edge1 = link_style.querySelector('[name="edge1"]').checked;
+                selected.edge2 = link_style.querySelector('[name="edge2"]').checked;
+            }
 	        draw();
             return false;
 		}
@@ -164,10 +170,6 @@
             }
 			//ドラッグ
 			if(['box','text','copy'].indexOf(type)>=0 && t.grf && !moving && !drawing) {
-				if (t.grf.type=='link') {
-					setSelected(t.grf);
-				    return false;
-				}
 			    moving = t.grf;
 				moving.start = t;
 				moving.originX = t.grf.x;
@@ -226,6 +228,8 @@
 			if(type=='link') {
 			    drawing.src = t.grf;
 			    drawing.dst = null;
+			    drawing.edge1 = false;
+			    drawing.edge2 = true;
 			}
 			return false;
 		};
@@ -269,14 +273,23 @@
 				if(drawing.type=='link') {
 					drawing.x = drawing.end.X;
 					drawing.y = drawing.end.Y;
-				    if (drawing.end.grf && drawing.src!= drawing.end.grf && drawing.end.grf.type=='box') {
+					drawing.dst = null;
+				    if (drawing.end.grf && drawing.src!=drawing.end.grf && drawing.end.grf.type=='box') {
 					    drawing.dst = drawing.end.grf;
 					}
 				}
 	        	draw();
 			}
 			if(moving) {
-			    if (moving.option.type == 'edge') {
+			    if (moving.type=='link') {
+				    var end = e.target;
+					moving.x = end.X;
+					moving.y = end.Y;
+					moving.dst = null;
+				    if (end.grf && moving.src!=end.grf && end.grf.type=='box') {
+					    moving.dst = end.grf;
+					}
+				} else if (moving.option.type == 'edge') {
 				    var end = e.target;
 				    var h = Math.abs(moving.x-end.X);
 				    var v = Math.abs(moving.y-end.Y);
@@ -335,6 +348,10 @@
             }
             if (grf.type=='line') {
                 line_style.querySelector('[name="edge"]').checked = grf.edge;
+            }
+            if (grf.type=='link') {
+                link_style.querySelector('[name="edge1"]').checked = grf.edge1;
+                link_style.querySelector('[name="edge2"]').checked = grf.edge2;
             }
 			
 		}
@@ -459,13 +476,15 @@
 		function drawLink(g) {
 			var p1 = [];
 			var p2 = [];
+			if(!grf.includes(g.dst)) g.dst=null;
 		    if(g.dst) {
 				//角を除く 最短の2点を選ぶ
 				var cx = g.dst.x + g.dst.width/2;
 				var cy = g.dst.y + g.dst.height/2;
 				p1 = getNearPoint(g.src,cx,cy);
 				p2 = getNearPoint(g.dst,p1[0],p1[1]);
-				//p1 = getNearPoint(g.src,p2[0],p2[1]);
+				g.x= p2[0];
+				g.y= p2[1];
 			} else {
 				var cx = g.x;
 				var cy = g.y;
@@ -485,7 +504,7 @@
 						y+=DV[p1[2]];
 			            bufSet(y, x, g, c);
 					}
-			        bufSet(y, x, g, ['>','V','<','^'][p1[2]]);
+			        if(g.edge2) bufSet(y, x, g, ['>','V','<','^'][p1[2]]);
 				    return;
 				}
 			    for(var i=0;i<=Math.abs(p1[d]-p2[d])/2;++i) {
@@ -510,7 +529,7 @@
 				    y+=DV[p1[2]];
 			        bufSet(y, x, g, c);
 				}
-			    bufSet(y, x, g, ['>','V','<','^'][p1[2]]);
+			    if(g.edge2) bufSet(y, x, g, ['>','V','<','^'][p1[2]]);
 			} else {
 			    var d = p1[2]&1;
 			    var x = p1[0];
@@ -528,7 +547,7 @@
 				    y-=DV[p2[2]];
 			        bufSet(y, x, g, c);
 				}
-			    bufSet(y, x, g, ['<','^','>','V'][p2[2]]);
+			    if(g.edge2) bufSet(y, x, g, ['<','^','>','V'][p2[2]]);
 			}
 		}
 	    var buf=[];
@@ -591,6 +610,10 @@
         function toHex(n) {
             return n.toString(16);
         }
+		
+		var CTLR_A = '\x01';
+		var CTLR_B = '\x02';
+		
         function output_md() {
             var records = [];
             for(var row of buf) {
@@ -599,8 +622,8 @@
                 var m = record.match(/^.*[^ ]/);
                 records.push(m ? m[0] : '');
             }
-            var last =0;
-            var start =-1;
+            var last = 0;
+            var start = -1;
             for(var i=0; i<records.length; ++i) {
                 if(records[i]!='') last=i;
                 if(start <0 && records[i]!='') start =i;              
@@ -611,22 +634,29 @@
                     str +='b';
                     var s = g.horizon.length + g.vertical.length*2 + g.corner.length*4;
                     str += s + g.horizon + g.vertical + g.corner;
-                    str += [toHex(g.x),toHex(g.y),toHex(g.width),toHex(g.height)].join();
-                    str += ',' + g.text;
+                    str += [toHex(g.x),toHex(g.y),toHex(g.width),toHex(g.height)].join(CTLR_B);
+                    str += CTLR_B + g.text;
                 }
 				if(g.type=='line') {
                     str +='l';
                     str += g.direction;
                     str += g.edge?0:1;
-                    str += [toHex(g.x),toHex(g.y),toHex(g.length)].join();
-                    str += ',' + g.text;
+                    str += [toHex(g.x),toHex(g.y),toHex(g.length)].join(CTLR_B);
+                    str += CTLR_B + g.text;
                 }
 				if(g.type=='text') {
                     str +='t';
-                    str += [toHex(g.x),toHex(g.y)].join();
-                    str += ',' + g.text;
+                    str += [toHex(g.x),toHex(g.y)].join(CTLR_B);
+                    str += CTLR_B + g.text;
                 }
-                str += ';';
+				if(g.type=='link') {
+                    str +='c';
+                    str += (g.edge1?1:0)+(g.edge2?2:0);
+                    if(g.dst) str += [toHex(grf.indexOf(g.src)),toHex(grf.indexOf(g.dst))].join(CTLR_B);
+                    else str += [toHex(grf.indexOf(g.src)),toHex(g.x),toHex(g.y)].join(CTLR_B);
+                    str += CTLR_B + g.text;
+                }
+                str += CTLR_A;
 			}
             output.value = '```\n' + records.slice(start,last+1).join('\n') + '\n```' +
                            '\n<!--' + encodeURIComponent(str) + '-->\n';
@@ -642,7 +672,7 @@
             grf = [];
             if(document.location.href.includes('?')) {
                 var str = decodeURIComponent(document.location.href.split('?')[1]);
-                for(var s of str.split(';')) if(s) {
+                for(var s of str.split(CTLR_A)) if(s) {
                     var g = {};
                     if(s[0]=='b') {
                         g.type = 'box';
@@ -661,7 +691,7 @@
                             g.corner = s[0];
                             s = s.slice(1);
                         }
-                        var n = s.split(',');
+                        var n = s.split(CTLR_B);
                         g.x = parseInt(n[0],16);
                         g.y = parseInt(n[1],16);
                         g.width = parseInt(n[2],16);
@@ -672,7 +702,7 @@
                         g.type = 'line';
                         g.direction = s[1]*1;
                         g.edge = s[2] == '0';
-                        var n = s.slice(2).split(',');
+                        var n = s.slice(2).split(CTLR_B);
                         g.x = parseInt(n[0],16);
                         g.y = parseInt(n[1],16);
                         g.length = parseInt(n[2],16);
@@ -680,14 +710,34 @@
                     }
                     if(s[0]=='t') {
                         g.type = 'text';
-                        var n = s.slice(1).split(',');
+                        var n = s.slice(1).split(CTLR_B);
                         g.x = parseInt(n[0],16);
                         g.y = parseInt(n[1],16);
                         g.text = n[2];
                     }
+                    if(s[0]=='c') {
+                        g.type = 'link';
+						g.edge1 = !!(s[1]&1);
+						g.edge2 = !!(s[1]&2);
+                        var n = s.slice(2).split(CTLR_B);
+						g.src = parseInt(n[0],16);
+						if(n.length==3) {
+							g.dst = parseInt(n[1],16);
+							g.text = n[2];
+						} else {
+							g.dst = null;
+							g.x = parseInt(n[1],16);
+							g.y = parseInt(n[2],16);
+							g.text = n[3];
+						}
+                    }
                     grf.push(g);
                 }
             }
+            for(var g of grf) if(g.type=='link') {
+			    g.src = grf[g.src];
+				if(g.dst!=null) g.dst = grf[g.dst];
+			}
             draw();
         }
         
