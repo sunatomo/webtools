@@ -98,7 +98,7 @@
 ```
 <!-- -->
 		</textarea>
-    <body>
+    </body>
 	<script>
 	    var DH = [1,0,-1,0];
 	    var DV = [0,1,0,-1];
@@ -125,6 +125,7 @@
 			
 			//ドラッグ
 			if(['box','line'].indexOf(type)>=0 && t.grf && !moving && !drawing) {
+				if (t.grf.type=='link') return false;
 			    moving = t.grf;
 				moving.start = t;
 				moving.originX = t.grf.x;
@@ -153,6 +154,10 @@
 				}
 			    return false;
             }
+			if(type=='link') {
+      			if(!t.grf || t.grf.type!='box') return false;
+			}
+			
 		    drawing = {
 			    start: t,
 			    end: t,
@@ -168,6 +173,10 @@
 			if(type=='line') {
 			    drawing.direction = 0;
 			    drawing.length = 0;
+			}
+			if(type=='link') {
+			    drawing.src = t.grf;
+			    drawing.dst = null;
 			}
 			return false;
 		};
@@ -201,6 +210,11 @@
 					} else {
 					    drawing.direction = drawing.start.X < drawing.end.X ? 0 : 2;
 						drawing.length = h;
+					}
+				}
+				if(drawing.type=='link') {
+				    if (drawing.end.grf && drawing.src!= drawing.end.grf && drawing.end.grf.type=='box') {
+					    drawing.dst = drawing.end.grf;
 					}
 				}
 	        	draw();
@@ -315,6 +329,53 @@
 			    bufSet(y, x+i, g, g.text[i]);
 			}
 		}
+		
+		function getNearPoint(box, X , Y) {
+			var distance = 10000000000;
+			var nx=0,ny=0,nd=0;
+			var d=0;
+			for(var x=box.x+1;x<box.x+box.width;++x){
+			    d = (X-x)*(X-x) + (Y-g.y)*(Y-g.y);
+				if(d<distance) {
+				    nx = x;
+				    ny = g.y;
+					nd = 3;
+					distance = d;
+				}
+			    d = (X-x)*(X-x) + (Y-g.y-g.height)*(Y-g.y-g.height);
+				if(d<distance) {
+				    nx = x;
+				    ny = g.y+g.height;
+					nd = 1;
+					distance = d;
+				}
+			}
+			for(var y=box.y+1;y<box.y+box.height;++y) {
+			    d = (X-g.x)*(X-g.x) + (Y-y)*(Y-y);
+				if(d<distance) {
+				    nx = g.x;
+				    ny = y;
+					nd = 2;
+					distance = d;
+				}
+			    d = (X-g.x-g.width)*(X-g.x-g.width) + (Y-y)*(Y-y);
+				if(d<distance) {
+				    nx = g.x+g.width;
+				    ny = y;
+					nd = 0;
+					distance = d;
+				}
+			}
+		    
+		}
+		function drawLink(g) {
+		    //角を除く 最短の2点を選ぶ
+			var cx = g.dst.x + g.dst.width/2;
+			var cy = g.dst.y + g.dst.height/2;
+			var p1 = getNearPoint(g.src,cx,cy);
+			
+		    for(var i=0;i<g.src.width
+		}
 	    var buf=[];
 		function bufSet(i,j,g,c) {
 		    if(buf[i] && buf[i][j]) {
@@ -348,6 +409,7 @@
 			for(var g of grf.concat(drawing)) if(g){
 				if(g.type=='box') drawBox(g);
 				if(g.type=='line') drawLine(g);
+				if(g.type=='link') drawLink(g);
 			}
 		}
 		draw();
