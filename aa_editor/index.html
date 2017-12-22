@@ -681,11 +681,11 @@
                 }
                 str += CTLR_A;
 			}
+            history.pushState(null,'','?'+encodeURIComponent(str));
             output.value = '```\n' + records.slice(start,last+1).join('\n') + '\n```' +
-                           '\n<!--' + encodeURIComponent(str) + '-->\n';
+                           '\n<!--\n' + document.location.href + '\n-->\n';
             output.rows = output.value.split('\n').length;
             output.cols = width;
-            history.pushState(null,'','?'+encodeURIComponent(str));
         }
         window.onpopstate = function (e) {
             decode();
