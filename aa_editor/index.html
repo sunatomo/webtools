@@ -108,6 +108,7 @@
 ```
 <!-- -->
 		</textarea>
+		<br><pre><word id='measureWidth' style="visibility: hidden;"></word></pre>
     </body>
 	<script>
 	    var DH = [1,0,-1,0];
@@ -120,11 +121,15 @@
 		
 		function remove() {
 		    if(selected) {
+			    selected.delete=true;
 			    var i = grf.indexOf(selected);
 			    grf = grf.slice(0, i).concat(grf.slice(i+1));
 			}
 			setSelected(null);
 	        draw();
+		}
+		window.onkeydown = function (e) {
+		    if(e.target == document.body && e.key=='Delete') remove(e);
 		}
 		function front() {
 			var i = grf.indexOf(selected);
@@ -141,8 +146,13 @@
 		    selected.text = e.value;
 	        draw();
 		}
+		function calcWidth(text) {
+		    measureWidth.innerText=text.replace(/　/g,'');
+		    return measureWidth.offsetWidth/((buf[0][100].offsetLeft-buf[0][0].offsetLeft)/100);
+		}
 		function chageProperty() {
             selected.text = input_text.value;
+			selected.textWidth = calcWidth(selected.text);
             if (selected.type=='box') {
                 selected.vertical = box_style.querySelector('[name="vertical"]').value;
                 selected.horizon = box_style.querySelector('[name="horizon"]').value;
@@ -159,6 +169,7 @@
             return false;
 		}
 		function onmousedown(e) {
+		    document.activeElement.blur();
 		    if(moving || drawing) return false;
 		    var t = e.target;
 		    var type = shapes.shape.value;
@@ -339,6 +350,9 @@
 			
 			common_style.style.display='';
 			input_text.value = selected.text;
+            input_text.rows = input_text.value.split('\n').length;
+            input_text.width = '100%';
+			
 			window[selected.type + '_style'].style.display='';
             
             if (grf.type=='box') {
@@ -375,6 +389,22 @@
 			return false;
 		}
 		
+		var zenkaku = /^[^\x01-\x7E\xA1-\xDF]+$/;
+		function drawTextMessage(y,x,g,lines) {
+		    for(var j=0;j<lines.length;++j) {
+			    var gap =0;
+                for(var i=0;i<lines[j].length;++i) {
+				    if(lines[j][i]=='　') {
+					    bufSet(y+j, x+gap+i, g, '  ');
+				    } else if(zenkaku.test(lines[j][i])) {
+					    bufSet(y+j, x+gap+i, g, lines[j][i]);
+					    bufSet(y+j, x+gap+i+1, g, null);
+						++gap;
+					} else bufSet(y+j, x+gap+i, g, lines[j][i]);
+                }
+			}
+		}
+		
 		function drawBox(g) {
 		    for(var x=g.x;x<=g.x+g.width;++x) {
 			    bufSet(g.y, x, g, g.horizon);
@@ -390,13 +420,9 @@
 			bufSet(g.y+g.height, g.x, g, g.corner);
             
             var lines = g.text.split('\n');
-			var l = lines.reduce(function(x,y) {return x.length>y.length ? x :y ;} ).length;
+			var l = g.textWidth;
 			var x = Math.floor(g.x + g.width/2-l/2 +0.5);
-		    for(var j=0;j<lines.length;++j) {            
-                for(var i=0;i<lines[j].length;++i) {
-                    bufSet(g.y+1+j, x+i, g, lines[j][i]);
-                }
-			}
+			drawTextMessage(g.y+1,x,g,lines);
 		}
 		
 		function drawLine(g) {
@@ -419,20 +445,12 @@
 			var l = lines.reduce(function(x,y) {return x.length>y.length ? x :y ;} ).length;
 			var x = Math.floor(g.x - l/2 + g.length/2*h +0.5);
 			var y = Math.floor(g.y + g.length/2*v - lines.length/2 +1.5);
-		    for(var j=0;j<lines.length;++j) {            
-                for(var i=0;i<lines[j].length;++i) {
-                    bufSet(y+j, x+i, g, lines[j][i]);
-                }
-			}
+			drawTextMessage(y,x,g,lines);
 		}
 		
 		function drawText(g) {
             var lines = g.text.split('\n');
-		    for(var j=0;j<lines.length;++j) {            
-                for(var i=0;i<lines[j].length;++i) {
-                    bufSet(g.y+j, g.x+i, g, lines[j][i]);
-                }
-			}
+			drawTextMessage(g.y,g.x,g,lines);
 		}
 		
 		function getNearPoint(box, X , Y) {
@@ -477,6 +495,7 @@
 			var p1 = [];
 			var p2 = [];
 			if(!grf.includes(g.dst)) g.dst=null;
+			if(g.src.delete) return; 
 		    if(g.dst) {
 				//角を除く 最短の2点を選ぶ
 				var cx = g.dst.x + g.dst.width/2;
@@ -493,35 +512,29 @@
 			}
 			if(p1[2]==p2[2]) return;
 			if(p1[0]==p2[0] && p1[1]==p2[1]) return;
+			
 			if(Math.abs(p1[2]-p2[2])==2) {
 			    var d = p1[2]&1;
 			    var x = p1[0];
 			    var y = p1[1];
 				var c = d ? '|' : '-';
-				if(p1[1-d]==p2[1-d]) {
-			        for(var i=1;i<Math.abs(p1[d]-p2[d]);++i) {
-						x+=DH[p1[2]];
-						y+=DV[p1[2]];
-			            bufSet(y, x, g, c);
-					}
-			        if(g.edge2) bufSet(y, x, g, ['>','V','<','^'][p1[2]]);
-				    return;
-				}
 			    for(var i=0;i<=Math.abs(p1[d]-p2[d])/2;++i) {
 				    x+=DH[p1[2]];
 				    y+=DV[p1[2]];
 			        bufSet(y, x, g, c);
 				}
-			    bufSet(y, x, g, '+');
-				var dx = d ? (p1[1-d]<p2[1-d] ?1: -1) : 0;
-				var dy = d ? 0 : (p1[1-d]<p2[1-d] ?1: -1);
-				c = d ? '-' : '|';
-			    for(var i=1;i<=Math.abs(p1[1-d]-p2[1-d]);++i) {
-				    x+=dx;
-				    y+=dy;
-			        bufSet(y, x, g, c);
+				if(p1[1-d]!=p2[1-d]) {
+					bufSet(y, x, g, '+');
+					var dx = d ? (p1[1-d]<p2[1-d] ?1: -1) : 0;
+					var dy = d ? 0 : (p1[1-d]<p2[1-d] ?1: -1);
+					c = d ? '-' : '|';
+					for(var i=1;i<=Math.abs(p1[1-d]-p2[1-d]);++i) {
+						x+=dx;
+						y+=dy;
+						bufSet(y, x, g, c);
+					}
+					bufSet(y, x, g, '+');
 				}
-			    bufSet(y, x, g, '+');
 				var l = Math.abs([x,y][d]-p2[d]);
 				c = d ? '|' : '-';
 			    for(var i=2;i<=l;++i) {
@@ -529,7 +542,6 @@
 				    y+=DV[p1[2]];
 			        bufSet(y, x, g, c);
 				}
-			    if(g.edge2) bufSet(y, x, g, ['>','V','<','^'][p1[2]]);
 			} else {
 			    var d = p1[2]&1;
 			    var x = p1[0];
@@ -547,13 +559,17 @@
 				    y-=DV[p2[2]];
 			        bufSet(y, x, g, c);
 				}
-			    if(g.edge2) bufSet(y, x, g, ['<','^','>','V'][p2[2]]);
 			}
+			if(g.edge2) bufSet(y, x, g, ['<','^','>','V'][p2[2]]);
+			else bufSet(p2[1], p2[0], g, '+');
+			if(g.edge1) bufSet(p1[1]+DV[p1[2]], p1[0]+DH[p1[2]], g, ['<','^','>','V'][p1[2]]);
+			else bufSet(p1[1], p1[0], g, '+');
 		}
 	    var buf=[];
 		function bufSet(i,j,g,c) {
 		    if(buf[i] && buf[i][j]) {
 			    if(c) buf[i][j].innerText = c;
+				else if(c==null) buf[i][j].innerText = '';
 				buf[i][j].grf = g;
 				buf[i][j].className = g.class;
 			}
@@ -616,16 +632,23 @@
 		
         function output_md() {
             var records = [];
+			var left = width;
             for(var row of buf) {
                 var record = '';
-                for(var cell of row) record += cell.innerText;
+                for(var cell of row) {
+				    record += cell.innerText;
+					if(cell.innerText!=' ' && cell.X<left) left=cell.X;
+				}
                 var m = record.match(/^.*[^ ]/);
                 records.push(m ? m[0] : '');
             }
             var last = 0;
             var start = -1;
             for(var i=0; i<records.length; ++i) {
-                if(records[i]!='') last=i;
+                if(records[i]!='') {
+				    records[i]=records[i].slice(left);
+				    last=i;
+				}
                 if(start <0 && records[i]!='') start =i;              
             }
             var str='';
@@ -649,7 +672,7 @@
                     str += [toHex(g.x),toHex(g.y)].join(CTLR_B);
                     str += CTLR_B + g.text;
                 }
-				if(g.type=='link') {
+				if(g.type=='link' && grf.indexOf(g.src)>=0) {
                     str +='c';
                     str += (g.edge1?1:0)+(g.edge2?2:0);
                     if(g.dst) str += [toHex(grf.indexOf(g.src)),toHex(grf.indexOf(g.dst))].join(CTLR_B);
@@ -697,6 +720,7 @@
                         g.width = parseInt(n[2],16);
                         g.height = parseInt(n[3],16);
                         g.text = n[4];
+						g.textWidth = calcWidth(g.text);
                     }
                     if(s[0]=='l') {
                         g.type = 'line';
