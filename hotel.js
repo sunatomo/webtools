@@ -20,9 +20,9 @@ f = e => {
     fetch('/gs.php?keyword=' + encodeURI(e)).then(e => e.text()).then(e => {
         A = e;
         D.innerHTML = e.match(/<a.*title.*<\/a>/g).sort().join('<br>');
-        B = D.querySelectorAll('a');
+        LIST = D.querySelectorAll('a');
         i = 0;
-        for (a of B) {
+        for (a of LIST) {
             a.I = i++;
             a.onclick = q => {
                 taitoru.innerText = q.target.title;
@@ -30,7 +30,7 @@ f = e => {
                     V.src = e.match(/file:.*(http[^']*)/)[1];
                     V.onpause = ev => {
                         if(ev.timeStamp<moveTime+1000) return true;
-                        if (V.currentTime > V.duration - 300) B[q.target.I + 1].click();
+                        if (V.currentTime > V.duration - 300) LIST[q.target.I + 1].click();
                         else if (V.currentTime < 300) {
                             V.currentTime += 40;
                             V.play();
@@ -47,9 +47,9 @@ f = e => {
 };
 
 console.info('ok');
-document.body.innerHTML = '<div style="float: left;"><input list="example" onchange=f(value)><div id=D></div></div>'
+document.body.innerHTML = '<div style="float: left;"><input list="example" onchange=f(value)><button id=B>クリア</button><div id=D></div></div>'
     + '<div style="float: left;" ><h1 id=taitoru></h1><video style="width: 720px;" id=V controls autoplay></video></div>'
     + '<datalist id="example"></datalist>';
-
+B.onclick = e=>e.target.previousElementSibling.value=''
 V.onmousemove = e=>{moveTime=e.timeStamp;}
 updateKouho();
