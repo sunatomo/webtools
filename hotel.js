@@ -8,7 +8,7 @@ function updateKouho() {
 }
 
 f = e => {
-    D.innerText = 'serching';
+    D.innerText = 'searching';
     let idx = kouho.indexOf(e);
     if (idx >= 0) {
         kouho = kouho.slice(0, idx).concat(kouho.slice(idx + 1));
@@ -25,12 +25,15 @@ f = e => {
         for (a of B) {
             a.I = i++;
             a.onclick = q => {
-                taitoru.innetText = q.target.innetText;
+                taitoru.innerText = q.target.title;
                 fetch(q.target.href).then(e => e.text()).then(e => {
                     V.src = e.match(/file:.*(http[^']*)/)[1];
-                    V.onpause = () => {
+                    V.onpause = ev => {
                         if (V.currentTime > V.duration - 300) B[q.target.I + 1].click();
-                        else {
+                        else if (V.currentTime < 300) {
+                            V.currentTime += 40;
+                            V.play();
+                        } else {
                             V.currentTime += 60;
                             V.play();
                         }
