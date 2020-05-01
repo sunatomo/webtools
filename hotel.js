@@ -25,6 +25,7 @@ f = e => {
         for (a of B) {
             a.I = i++;
             a.onclick = q => {
+                taitoru.innetText = q.target.innetText;
                 fetch(q.target.href).then(e => e.text()).then(e => {
                     V.src = e.match(/file:.*(http[^']*)/)[1];
                     V.onpause = () => {
@@ -42,7 +43,8 @@ f = e => {
 };
 
 console.info('ok');
-document.body.innerHTML = '<div style="float: left;" style="float: left;"><input list="example" onchange=f(value)><div id=D></div></div><video id=V controls autoplay></video>'
+document.body.innerHTML = '<div style="float: left;"><input list="example" onchange=f(value)><div id=D></div></div>'
+    + '<div style="float: left;" ><h1 id=taitoru></h1><video style="width: 720px;" id=V controls autoplay></video></div>'
     + '<datalist id="example"></datalist>';
 
 updateKouho();
