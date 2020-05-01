@@ -6,7 +6,7 @@ function updateKouho() {
         example.innerHTML = '<option value="' + k + '"></option>' + example.innerHTML;
     }
 }
-
+moveTime=0;
 f = e => {
     D.innerText = 'searching';
     let idx = kouho.indexOf(e);
@@ -29,6 +29,7 @@ f = e => {
                 fetch(q.target.href).then(e => e.text()).then(e => {
                     V.src = e.match(/file:.*(http[^']*)/)[1];
                     V.onpause = ev => {
+                        if(ev.timeStamp<moveTime+1000) return true;
                         if (V.currentTime > V.duration - 300) B[q.target.I + 1].click();
                         else if (V.currentTime < 300) {
                             V.currentTime += 40;
@@ -50,4 +51,5 @@ document.body.innerHTML = '<div style="float: left;"><input list="example" oncha
     + '<div style="float: left;" ><h1 id=taitoru></h1><video style="width: 720px;" id=V controls autoplay></video></div>'
     + '<datalist id="example"></datalist>';
 
+V.onmousemove = e=>{moveTime=e.timeStamp;}
 updateKouho();
