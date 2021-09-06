@@ -27,7 +27,7 @@ f = e => {
             a.onclick = q => {
                 taitoru.innerText = q.target.title;
                 fetch(q.target.href).then(e => e.text()).then(e => {
-                    V.src = e.match(/file:.*(http[^']*)/)[1];
+                    V.src = e.match(/video: '(http[^']+)/)[1];
                     V.onpause = ev => {
                         if(ev.timeStamp<moveTime+1000) return true;
                         if (V.currentTime > V.duration - 300) LIST[q.target.I + 1].click();
