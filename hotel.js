@@ -19,7 +19,7 @@ f = e => {
     updateKouho();
     fetch('/gs.php?keyword=' + encodeURI(e)).then(e => e.text()).then(e => {
         A = e;
-        D.innerHTML = e.match(/<a.*title.*<\/a>/g).sort().join('<br>');
+        D.innerHTML = e.replaceAll('\r\n','').match(/<dl class="t_box">.*?<\/dl>/g).map(S=>'<'+S.match(/[^<]*title=.*a>/g)[0].replace(/<\/a.*">/,'#')).sort((a,b)=>a.split('#').reverse().join()>b.split('#').reverse().join()?1:-1).join('<br>');
         LIST = D.querySelectorAll('a');
         i = 0;
         for (a of LIST) {
